@@ -1,0 +1,2480 @@
+//```csharp
+//// 1 задание
+//namespace SmartCleaningRobot
+//{
+//    public enum FloorType
+//    {
+//        Ковер,
+//        Плитка,
+//        Паркет,
+//        БазоваяСтанция
+//    }
+
+//    public enum CleaningMode
+//    {
+//        Сухая,
+//        Влажная,
+//        Щадящая
+//    }
+
+//    public class Room
+//    {
+//        public int Id { get; }
+//        public string Name { get; }
+//        public FloorType FloorType { get; }
+//        public bool IsCleaned { get; set; }
+//        public bool IsSlippery { get; set; }
+
+//        public Room(int id, string name, FloorType floorType)
+//        {
+//            Id = id;
+//            Name = name;
+//            FloorType = floorType;
+//            IsCleaned = false;
+//            IsSlippery = (floorType == FloorType.Плитка) ? new Random().Next(0, 10) < 3 : false;
+//        }
+
+//        public CleaningMode GetRequiredCleaningMode()
+//        {
+//            return FloorType switch
+//            {
+//                FloorType.Ковер => CleaningMode.Сухая,
+//                FloorType.Плитка => IsSlippery ? CleaningMode.Сухая : CleaningMode.Влажная,
+//                FloorType.Паркет => CleaningMode.Щадящая,
+//                _ => CleaningMode.Сухая
+//            };
+//        }
+
+//        public string GetFloorTypeString()
+//        {
+//            return FloorType.ToString();
+//        }
+//    }
+
+//    public class Robot
+//    {
+//        public string Name { get; }
+//        public double BatteryLevel { get; private set; }
+//        public int CurrentRoomId { get; private set; }
+//        public bool IsOnBaseStation { get; private set; }
+
+//        private const double BATTERY_THRESHOLD = 0.2;
+//        private const double CLEANING_COST = 0.05;
+//        private const double MOVEMENT_COST = 0.03;
+//        private const double CHARGING_RATE = 0.3;
+
+//        public Robot(string name, double initialBattery = 1.0)
+//        {
+//            Name = name;
+//            BatteryLevel = initialBattery;
+//            CurrentRoomId = 0;
+//            IsOnBaseStation = true;
+//        }
+
+//        public bool MoveToRoom(int targetRoomId, bool[,] adjacencyMatrix)
+//        {
+//            if (!adjacencyMatrix[CurrentRoomId, targetRoomId])
+//            {
+//                return false;
+//            }
+
+//            BatteryLevel -= MOVEMENT_COST;
+//            if (BatteryLevel < 0) BatteryLevel = 0;
+
+//            CurrentRoomId = targetRoomId;
+//            IsOnBaseStation = (CurrentRoomId == 0);
+
+//            return true;
+//        }
+
+//        public bool CleanRoom(Room room)
+//        {
+//            if (BatteryLevel <= BATTERY_THRESHOLD)
+//            {
+//                return false;
+//            }
+
+//            if (room.IsCleaned)
+//            {
+//                return true;
+//            }
+
+//            BatteryLevel -= CLEANING_COST;
+//            if (BatteryLevel < 0) BatteryLevel = 0;
+
+//            room.IsCleaned = true;
+//            return true;
+//        }
+
+//        public void Charge()
+//        {
+//            BatteryLevel += CHARGING_RATE;
+//            if (BatteryLevel > 1.0) BatteryLevel = 1.0;
+//            IsOnBaseStation = true;
+//        }
+
+//        public bool ShouldReturnToBase()
+//        {
+//            return BatteryLevel <= BATTERY_THRESHOLD && CurrentRoomId != 0;
+//        }
+
+//        public bool CanContinueWorking()
+//        {
+//            return BatteryLevel > MOVEMENT_COST || IsOnBaseStation;
+//        }
+//    }
+
+//    public class SmartNavigator
+//    {
+//        private List<Room> rooms;
+//        private bool[,] adjacencyMatrix;
+//        private Robot robot;
+
+//        public SmartNavigator(List<Room> rooms, bool[,] adjacencyMatrix, Robot robot)
+//        {
+//            this.rooms = rooms;
+//            this.adjacencyMatrix = adjacencyMatrix;
+//            this.robot = robot;
+//        }
+
+//        private List<int> FindPath(int startRoomId, int targetRoomId)
+//        {
+//            var queue = new Queue<List<int>>();
+//            var visited = new HashSet<int>();
+
+//            queue.Enqueue(new List<int> { startRoomId });
+//            visited.Add(startRoomId);
+
+//            while (queue.Count > 0)
+//            {
+//                var path = queue.Dequeue();
+//                int currentRoom = path.Last();
+
+//                if (currentRoom == targetRoomId)
+//                {
+//                    return path;
+//                }
+
+//                for (int i = 0; i < adjacencyMatrix.GetLength(0); i++)
+//                {
+//                    if (adjacencyMatrix[currentRoom, i] && !visited.Contains(i))
+//                    {
+//                        visited.Add(i);
+//                        var newPath = new List<int>(path) { i };
+//                        queue.Enqueue(newPath);
+//                    }
+//                }
+//            }
+
+//            return new List<int>();
+//        }
+
+//        private List<int> FindPathToBase(int startRoomId)
+//        {
+//            return FindPath(startRoomId, 0);
+//        }
+
+//        private List<int> FindPathToNextRoom(int startRoomId, HashSet<int> cleanedRooms)
+//        {
+//            var unvisitedRooms = new List<int>();
+//            for (int i = 1; i < rooms.Count; i++)
+//            {
+//                if (!rooms[i].IsCleaned && !cleanedRooms.Contains(i))
+//                {
+//                    unvisitedRooms.Add(i);
+//                }
+//            }
+
+//            if (unvisitedRooms.Count == 0)
+//            {
+//                return new List<int>();
+//            }
+
+//            var shortestPath = new List<int>();
+//            foreach (var targetRoom in unvisitedRooms)
+//            {
+//                var path = FindPath(startRoomId, targetRoom);
+//                if (path.Count > 0 && (shortestPath.Count == 0 || path.Count < shortestPath.Count))
+//                {
+//                    shortestPath = path;
+//                }
+//            }
+
+//            return shortestPath;
+//        }
+
+//        private bool ReturnToBaseForCharging()
+//        {
+//            if (robot.CurrentRoomId == 0)
+//            {
+//                return true;
+//            }
+
+//            var pathToBase = FindPathToBase(robot.CurrentRoomId);
+
+//            if (pathToBase.Count == 0)
+//            {
+//                return false;
+//            }
+
+//            Console.WriteLine("Низкий заряд батареи! Возвращаюсь на базу...");
+
+//            foreach (var roomId in pathToBase.Skip(1))
+//            {
+//                robot.MoveToRoom(roomId, adjacencyMatrix);
+//            }
+
+//            Console.WriteLine("На базовой станции. Заряжаюсь до 100%...");
+//            while (robot.BatteryLevel < 1.0)
+//            {
+//                robot.Charge();
+//            }
+//            Console.WriteLine("Зарядка завершена.");
+
+//            return true;
+//        }
+
+//        public void ExecuteCleaning()
+//        {
+//            Console.WriteLine("Робот " + robot.Name + " начинает уборку...");
+//            Console.WriteLine("Начальный уровень заряда: " + (robot.BatteryLevel * 100).ToString("F0") + "%");
+//            Console.WriteLine();
+
+//            var cleanedRooms = new HashSet<int>();
+//            int totalRoomsToClean = rooms.Count - 1;
+
+//            while (cleanedRooms.Count < totalRoomsToClean && robot.CanContinueWorking())
+//            {
+//                if (robot.ShouldReturnToBase())
+//                {
+//                    if (!ReturnToBaseForCharging())
+//                    {
+//                        break;
+//                    }
+//                }
+
+//                var pathToNextRoom = FindPathToNextRoom(robot.CurrentRoomId, cleanedRooms);
+
+//                if (pathToNextRoom.Count == 0)
+//                {
+//                    break;
+//                }
+
+//                bool success = true;
+//                foreach (var roomId in pathToNextRoom.Skip(1))
+//                {
+//                    if (!robot.MoveToRoom(roomId, adjacencyMatrix))
+//                    {
+//                        success = false;
+//                        break;
+//                    }
+
+//                    if (robot.ShouldReturnToBase())
+//                    {
+//                        success = false;
+//                        break;
+//                    }
+//                }
+
+//                if (!success)
+//                {
+//                    continue;
+//                }
+
+//                int currentRoomId = robot.CurrentRoomId;
+//                Room currentRoom = rooms[currentRoomId];
+
+//                if (!currentRoom.IsCleaned)
+//                {
+//                    CleaningMode mode = currentRoom.GetRequiredCleaningMode();
+//                    string modeStr = mode.ToString();
+
+//                    Console.WriteLine("Убираю комнату: " + currentRoom.Name);
+//                    Console.WriteLine("Тип покрытия: " + currentRoom.GetFloorTypeString());
+//                    Console.WriteLine("Режим уборки: " + modeStr);
+
+//                    if (currentRoom.FloorType == FloorType.Плитка)
+//                    {
+//                        Console.WriteLine("Состояние плитки: " + (currentRoom.IsSlippery ? "Мокрая/Скользко" : "Сухая/Безопасно"));
+//                    }
+
+//                    if (robot.CleanRoom(currentRoom))
+//                    {
+//                        cleanedRooms.Add(currentRoomId);
+//                        Console.WriteLine("Комната убрана");
+//                        Console.WriteLine("Заряд батареи: " + (robot.BatteryLevel * 100).ToString("F0") + "%");
+//                    }
+//                    else
+//                    {
+//                        if (robot.ShouldReturnToBase())
+//                        {
+//                            ReturnToBaseForCharging();
+//                        }
+//                    }
+
+//                    Console.WriteLine();
+//                }
+//            }
+
+//            Console.WriteLine("========================================");
+//            Console.WriteLine("ОТЧЕТ ОБ УБОРКЕ");
+//            Console.WriteLine("========================================");
+//            Console.WriteLine("Робот: " + robot.Name);
+//            Console.WriteLine("Финальный заряд: " + (robot.BatteryLevel * 100).ToString("F0") + "%");
+//            Console.WriteLine("Убрано комнат: " + cleanedRooms.Count + "/" + totalRoomsToClean);
+//            Console.WriteLine();
+
+//            Console.WriteLine("Статус комнат:");
+//            foreach (var room in rooms)
+//            {
+//                if (room.Id == 0) continue;
+
+//                string status = room.IsCleaned ? "Убрана" : "Не убрана";
+//                string floorInfo = room.FloorType == FloorType.Плитка
+//                    ? room.GetFloorTypeString() + " (" + (room.IsSlippery ? "скользко" : "сухо") + ")"
+//                    : room.GetFloorTypeString();
+
+//                Console.WriteLine(room.Name + ": " + status);
+//                Console.WriteLine("  Тип покрытия: " + floorInfo);
+//            }
+
+//            Console.WriteLine();
+
+//            if (cleanedRooms.Count == totalRoomsToClean)
+//            {
+//                Console.WriteLine("Все комнаты успешно убраны!");
+//            }
+//            else
+//            {
+//                Console.WriteLine("Уборка не завершена. Осталось убрать " + (totalRoomsToClean - cleanedRooms.Count) + " комнат.");
+
+//                var remainingRooms = rooms.Where(r => r.Id != 0 && !r.IsCleaned).ToList();
+//                if (remainingRooms.Count > 0)
+//                {
+//                    Console.WriteLine("Неубранные комнаты:");
+//                    foreach (var room in remainingRooms)
+//                    {
+//                        Console.WriteLine("  - " + room.Name);
+//                    }
+//                }
+//            }
+//        }
+//    }
+
+//    class Program
+//    {
+//        static void Main(string[] args)
+//        {
+//            List<Room> rooms = new List<Room>
+//            {
+//                new Room(0, "Базовая станция", FloorType.БазоваяСтанция),
+//                new Room(1, "Гостиная", FloorType.Ковер),
+//                new Room(2, "Кухня", FloorType.Плитка),
+//                new Room(3, "Спальня", FloorType.Паркет),
+//                new Room(4, "Ванная", FloorType.Плитка),
+//                new Room(5, "Коридор", FloorType.Плитка)
+//            };
+
+//            bool[,] adjacencyMatrix = new bool[6, 6]
+//            {
+//                {false, true,  false, false, false, true},
+//                {true,  false, true,  true,  false, true},
+//                {false, true,  false, false, true,  true},
+//                {false, true,  false, false, false, true},
+//                {false, false, true,  false, false, true},
+//                {true,  true,  true,  true,  true,  false}
+//            };
+
+//            Robot robot = new Robot("CleanBot v2.0", 0.3);
+
+//            SmartNavigator navigator = new SmartNavigator(rooms, adjacencyMatrix, robot);
+
+//            navigator.ExecuteCleaning();
+//        }
+//    }
+//}
+
+//// 2 задание
+//namespace DetectiveAlgorithm
+//{
+//    public class Testimony
+//    {
+//        public DateTime Time { get; set; }
+//        public string Place { get; set; }
+//        public string Description { get; set; }
+//        public int WitnessId { get; set; }
+
+//        public Testimony(DateTime time, string place, string description, int witnessId)
+//        {
+//            Time = time;
+//            Place = place;
+//            Description = description;
+//            WitnessId = witnessId;
+//        }
+
+//        public override string ToString()
+//        {
+//            return $"{Time:HH:mm} - {Place}: {Description} (Свидетель #{WitnessId})";
+//        }
+//    }
+
+//    public class TimePlaceKey
+//    {
+//        public DateTime Time { get; set; }
+//        public string Place { get; set; }
+
+//        public TimePlaceKey(DateTime time, string place)
+//        {
+//            Time = time;
+//            Place = place;
+//        }
+
+//        public override bool Equals(object obj)
+//        {
+//            if (obj is TimePlaceKey other)
+//            {
+//                return Time == other.Time && Place == other.Place;
+//            }
+//            return false;
+//        }
+
+//        public override int GetHashCode()
+//        {
+//            return HashCode.Combine(Time, Place);
+//        }
+//    }
+
+//    public class PersonDescription
+//    {
+//        public string Description { get; set; }
+//        public List<int> WitnessIds { get; set; }
+//        public int Frequency { get; set; }
+
+//        public PersonDescription(string description, int witnessId)
+//        {
+//            Description = description;
+//            WitnessIds = new List<int> { witnessId };
+//            Frequency = 1;
+//        }
+
+//        public void AddWitness(int witnessId)
+//        {
+//            if (!WitnessIds.Contains(witnessId))
+//            {
+//                WitnessIds.Add(witnessId);
+//            }
+//            Frequency++;
+//        }
+//    }
+
+//    public class DetectiveAnalyzer
+//    {
+//        private List<Testimony> allTestimonies;
+
+//        public DetectiveAnalyzer(List<Testimony> testimonies)
+//        {
+//            allTestimonies = testimonies.OrderBy(t => t.Time).ToList();
+//        }
+
+//        public Dictionary<TimePlaceKey, List<PersonDescription>> GroupByTimeAndPlace()
+//        {
+//            var groups = new Dictionary<TimePlaceKey, List<PersonDescription>>();
+
+//            foreach (var testimony in allTestimonies)
+//            {
+//                var key = new TimePlaceKey(testimony.Time, testimony.Place);
+
+//                if (!groups.ContainsKey(key))
+//                {
+//                    groups[key] = new List<PersonDescription>();
+//                }
+
+//                var existingDescription = groups[key].FirstOrDefault(d => d.Description == testimony.Description);
+
+//                if (existingDescription != null)
+//                {
+//                    existingDescription.AddWitness(testimony.WitnessId);
+//                }
+//                else
+//                {
+//                    groups[key].Add(new PersonDescription(testimony.Description, testimony.WitnessId));
+//                }
+//            }
+
+//            return groups;
+//        }
+
+//        public List<Testimony> FilterContradictions()
+//        {
+//            var groups = GroupByTimeAndPlace();
+//            var nonContradictoryTestimonies = new List<Testimony>();
+
+//            foreach (var group in groups)
+//            {
+//                if (group.Value.Count == 1)
+//                {
+//                    var description = group.Value.First();
+//                    foreach (var witnessId in description.WitnessIds)
+//                    {
+//                        var testimony = allTestimonies.FirstOrDefault(t =>
+//                            t.Time == group.Key.Time &&
+//                            t.Place == group.Key.Place &&
+//                            t.Description == description.Description &&
+//                            t.WitnessId == witnessId);
+
+//                        if (testimony != null)
+//                        {
+//                            nonContradictoryTestimonies.Add(testimony);
+//                        }
+//                    }
+//                }
+//            }
+
+//            return nonContradictoryTestimonies.OrderBy(t => t.Time).ToList();
+//        }
+
+//        public List<Testimony> FindCoreTestimonies()
+//        {
+//            var filtered = FilterContradictions();
+//            var coreTestimonies = new List<Testimony>();
+
+//            var timeGroups = filtered.GroupBy(t => t.Time).OrderBy(g => g.Key);
+
+//            foreach (var timeGroup in timeGroups)
+//            {
+//                var placeGroups = timeGroup.GroupBy(t => t.Place);
+
+//                foreach (var placeGroup in placeGroups)
+//                {
+//                    var descriptionGroups = placeGroup.GroupBy(t => t.Description);
+
+//                    if (descriptionGroups.Count() == 1)
+//                    {
+//                        var mostFrequent = descriptionGroups
+//                            .SelectMany(g => g)
+//                            .GroupBy(t => t.WitnessId)
+//                            .OrderByDescending(g => g.Count())
+//                            .First()
+//                            .First();
+
+//                        coreTestimonies.Add(mostFrequent);
+//                    }
+//                }
+//            }
+
+//            return coreTestimonies.OrderBy(t => t.Time).ToList();
+//        }
+
+//        public List<string> BuildSuspectRoute()
+//        {
+//            var coreTestimonies = FindCoreTestimonies();
+//            var route = new List<string>();
+
+//            foreach (var testimony in coreTestimonies)
+//            {
+//                route.Add($"{testimony.Time:HH:mm} - {testimony.Place} ({testimony.Description})");
+//            }
+
+//            return route;
+//        }
+
+//        public List<TimeSpan> FindTimeGaps(int maxGapMinutes = 60)
+//        {
+//            var coreTestimonies = FindCoreTestimonies();
+//            var gaps = new List<TimeSpan>();
+
+//            if (coreTestimonies.Count < 2)
+//            {
+//                return gaps;
+//            }
+
+//            for (int i = 0; i < coreTestimonies.Count - 1; i++)
+//            {
+//                var currentTime = coreTestimonies[i].Time;
+//                var nextTime = coreTestimonies[i + 1].Time;
+//                var gap = nextTime - currentTime;
+
+//                if (gap.TotalMinutes > maxGapMinutes)
+//                {
+//                    gaps.Add(gap);
+//                }
+//            }
+
+//            return gaps;
+//        }
+
+//        public void PrintAnalysisReport()
+//        {
+//            Console.WriteLine("АНАЛИЗ СВИДЕТЕЛЬСКИХ ПОКАЗАНИЙ");
+
+//            Console.WriteLine($"\nВсего показаний: {allTestimonies.Count}");
+//            Console.WriteLine("Все показания:");
+//            foreach (var testimony in allTestimonies)
+//            {
+//                Console.WriteLine($"  {testimony}");
+//            }
+
+//            var contradictoryGroups = GroupByTimeAndPlace()
+//                .Where(g => g.Value.Count > 1)
+//                .ToList();
+
+//            Console.WriteLine($"\nОбнаружено противоречий: {contradictoryGroups.Count}");
+//            foreach (var group in contradictoryGroups)
+//            {
+//                Console.WriteLine($"\nПротиворечие в {group.Key.Time:HH:mm} в {group.Key.Place}:");
+//                foreach (var desc in group.Value)
+//                {
+//                    Console.WriteLine($"  Описание: {desc.Description} (свидетели: {string.Join(", ", desc.WitnessIds)})");
+//                }
+//            }
+
+//            var filtered = FilterContradictions();
+//            Console.WriteLine($"\nНепротиворечивые показания: {filtered.Count}");
+//            foreach (var testimony in filtered)
+//            {
+//                Console.WriteLine($"  {testimony}");
+//            }
+
+//            var core = FindCoreTestimonies();
+//            Console.WriteLine($"\nЯдро показаний: {core.Count}");
+//            foreach (var testimony in core)
+//            {
+//                Console.WriteLine($"  {testimony}");
+//            }
+
+//            var route = BuildSuspectRoute();
+//            Console.WriteLine($"\nВероятный маршрут подозреваемого ({route.Count} точек):");
+//            foreach (var point in route)
+//            {
+//                Console.WriteLine($"  {point}");
+//            }
+
+//            var gaps = FindTimeGaps();
+//            Console.WriteLine($"\nОбнаружено временных пропусков: {gaps.Count}");
+//            if (gaps.Count > 0)
+//            {
+//                Console.WriteLine("Требуют дополнительного расследования:");
+//                for (int i = 0; i < gaps.Count; i++)
+//                {
+//                    Console.WriteLine($"  Пропуск {i + 1}: {gaps[i]:hh\\:mm} часов");
+//                }
+//            }
+//            else
+//            {
+//                Console.WriteLine("Значительных временных пропусков не обнаружено.");
+//            }
+//        }
+//    }
+
+//    class Program
+//    {
+//        static void Main(string[] args)
+//        {
+//            var testimonies = new List<Testimony>
+//            {
+//                new Testimony(new DateTime(2024, 1, 15, 14, 0, 0), "Банк", "Мужчина в черной куртке", 1),
+//                new Testimony(new DateTime(2024, 1, 15, 14, 0, 0), "Банк", "Мужчина в синей куртке", 2),
+//                new Testimony(new DateTime(2024, 1, 15, 14, 0, 0), "Банк", "Мужчина в черной куртке", 3),
+//                new Testimony(new DateTime(2024, 1, 15, 14, 30, 0), "Кафе", "Мужчина в черной куртке", 4),
+//                new Testimony(new DateTime(2024, 1, 15, 14, 30, 0), "Кафе", "Мужчина в черной куртке", 5),
+//                new Testimony(new DateTime(2024, 1, 15, 15, 15, 0), "Парк", "Мужчина в черной куртке", 6),
+//                new Testimony(new DateTime(2024, 1, 15, 15, 15, 0), "Парк", "Мужчина в кепке", 7),
+//                new Testimony(new DateTime(2024, 1, 15, 16, 45, 0), "Вокзал", "Мужчина в черной куртке", 8),
+//                new Testimony(new DateTime(2024, 1, 15, 16, 45, 0), "Вокзал", "Мужчина с сумкой", 9),
+//                new Testimony(new DateTime(2024, 1, 15, 18, 0, 0), "Гостиница", "Мужчина в черной куртке", 10),
+//                new Testimony(new DateTime(2024, 1, 15, 14, 0, 0), "Банк", "Мужчина в черной куртке", 11),
+//                new Testimony(new DateTime(2024, 1, 15, 15, 15, 0), "Парк", "Мужчина в черной куртке", 12)
+//            };
+
+//            var analyzer = new DetectiveAnalyzer(testimonies);
+//            analyzer.PrintAnalysisReport();
+
+//            Console.WriteLine("\nНажмите любую клавишу для выхода...");
+//            Console.ReadKey();
+//        }
+//    }
+//}
+
+//// 3 задание
+//using System.Text.RegularExpressions;
+
+//namespace ReviewAnalyzer
+//{
+//    public class Review
+//    {
+//        public string Id { get; set; }
+//        public string OriginalText { get; set; }
+//        public int Rating { get; set; }
+//        public DateTime Date { get; set; }
+//        public Sentiment Sentiment { get; set; }
+//        public List<string> Entities { get; set; }
+//        public string ProcessedText { get; set; }
+
+//        public Review(string id, string text, int rating, DateTime date)
+//        {
+//            Id = id;
+//            OriginalText = text;
+//            Rating = rating;
+//            Date = date;
+//            Entities = new List<string>();
+//        }
+//    }
+
+//    public enum Sentiment
+//    {
+//        Positive,
+//        Negative,
+//        Neutral
+//    }
+
+//    public class EntityAnalysis
+//    {
+//        public string Entity { get; set; }
+//        public int TotalMentions { get; set; }
+//        public int PositiveMentions { get; set; }
+//        public int NegativeMentions { get; set; }
+//        public int NeutralMentions { get; set; }
+//        public double PositivePercentage => TotalMentions > 0 ? (PositiveMentions * 100.0) / TotalMentions : 0;
+//        public double NegativePercentage => TotalMentions > 0 ? (NegativeMentions * 100.0) / TotalMentions : 0;
+//        public double ProblemScore => NegativePercentage - PositivePercentage;
+//        public double QualityScore => PositivePercentage - NegativePercentage;
+//    }
+
+//    public class ReviewAnalyzer
+//    {
+//        private List<string> stopWords = new List<string>
+//        {
+//            "и", "а", "但", "в", "на", "с", "по", "для", "не", "что", "это", "как", "так",
+//            "все", "он", "она", "они", "мы", "вы", "его", "ее", "их", "то", "из", "от", "у"
+//        };
+
+//        private Dictionary<string, string> lemmatizationDict = new Dictionary<string, string>
+//        {
+//            {"хороший", "хороший"}, {"хорошо", "хороший"}, {"хорошая", "хороший"}, {"хорошее", "хороший"},
+//            {"плохой", "плохой"}, {"плохо", "плохой"}, {"плохая", "плохой"}, {"плохое", "плохой"},
+//            {"отличный", "отличный"}, {"отлично", "отличный"}, {"отличная", "отличный"}, {"отличное", "отличный"},
+//            {"ужасный", "ужасный"}, {"ужасно", "ужасный"}, {"ужасная", "ужасный"}, {"ужасное", "ужасный"},
+//            {"быстрый", "быстрый"}, {"быстро", "быстрый"}, {"быстрая", "быстрый"}, {"быстрое", "быстрый"},
+//            {"медленный", "медленный"}, {"медленно", "медленный"}, {"медленная", "медленный"}, {"медленное", "медленный"},
+//            {"большой", "большой"}, {"большо", "большой"}, {"большая", "большой"}, {"большое", "большой"},
+//            {"маленький", "маленький"}, {"маленько", "маленький"}, {"маленькая", "маленький"}, {"маленькое", "маленький"},
+//            {"дорогой", "дорогой"}, {"дорого", "дорогой"}, {"дорогая", "дорогой"}, {"дорогое", "дорогой"},
+//            {"дешевый", "дешевый"}, {"дешево", "дешевый"}, {"дешевая", "дешевый"}, {"дешевое", "дешевый"}
+//        };
+
+//        private List<string> positiveWords = new List<string>
+//        {
+//            "хороший", "отличный", "прекрасный", "замечательный", "великолепный", "супер", "классный",
+//            "удобный", "качественный", "надежный", "быстрый", "мощный", "стильный", "красивый",
+//            "понравился", "рекомендую", "доволен", "рад", "восхищен", "идеальный", "безупречный"
+//        };
+
+//        private List<string> negativeWords = new List<string>
+//        {
+//            "плохой", "ужасный", "кошмарный", "отвратительный", "некачественный", "бракованный",
+//            "медленный", "слабый", "неудобный", "громоздкий", "тяжелый", "дорогой", "дешевый",
+//            "разочарован", "жалею", "не рекомендую", "недоволен", "сломался", "не работает",
+//            "проблема", "недостаток", "минус", "неудобство"
+//        };
+
+//        private Dictionary<string, List<string>> entityKeywords = new Dictionary<string, List<string>>
+//        {
+//            {"батарея", new List<string> {"батарея", "аккумулятор", "заряд", "заряда", "энергия", "автономность"}},
+//            {"экран", new List<string> {"экран", "дисплей", "матрица", "изображение", "картинка", "яркость"}},
+//            {"доставка", new List<string> {"доставка", "курьер", "почта", "отправка", "получение", "срок"}},
+//            {"камера", new List<string> {"камера", "фото", "снимок", "видео", "зум", "фокусировка"}},
+//            {"производительность", new List<string> {"производительность", "скорость", "процессор", "оперативка", "память"}},
+//            {"звук", new List<string> {"звук", "динамик", "наушники", "громкость", "качество звука"}},
+//            {"сборка", new List<string> {"сборка", "корпус", "материал", "качество сборки", "прочный"}},
+//            {"цена", new List<string> {"цена", "стоимость", "дорогой", "дешевый", "бюджет", "стоит"}}
+//        };
+
+//        private List<string> intensifiers = new List<string> { "очень", "крайне", "чрезвычайно", "сильно", "ужасно" };
+
+//        public Review PreprocessReview(Review review)
+//        {
+//            string text = review.OriginalText.ToLower();
+
+//            text = Regex.Replace(text, @"<[^>]+>|&nbsp;", " ");
+//            text = Regex.Replace(text, @"[^\w\s]", " ");
+//            text = Regex.Replace(text, @"\s+", " ");
+
+//            var words = text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+//            var filteredWords = words
+//                .Where(word => !stopWords.Contains(word))
+//                .Select(word => lemmatizationDict.ContainsKey(word) ? lemmatizationDict[word] : word)
+//                .ToList();
+
+//            review.ProcessedText = string.Join(" ", filteredWords);
+//            return review;
+//        }
+
+//        public Sentiment AnalyzeSentiment(Review review)
+//        {
+//            double score = 0;
+
+//            if (review.Rating >= 4) score += 1;
+//            else if (review.Rating <= 2) score -= 1;
+
+//            var words = review.ProcessedText.Split(' ');
+
+//            for (int i = 0; i < words.Length; i++)
+//            {
+//                string word = words[i];
+//                double wordScore = 0;
+
+//                if (positiveWords.Contains(word))
+//                {
+//                    wordScore = 1;
+//                }
+//                else if (negativeWords.Contains(word))
+//                {
+//                    wordScore = -1;
+//                }
+
+//                if (i > 0)
+//                {
+//                    string prevWord = words[i - 1];
+
+//                    if (prevWord == "не" || prevWord == "ни" || prevWord == "без")
+//                    {
+//                        wordScore *= -1;
+//                    }
+
+//                    if (intensifiers.Contains(prevWord))
+//                    {
+//                        wordScore *= 1.5;
+//                    }
+//                }
+
+//                score += wordScore;
+//            }
+
+//            if (score > 0.5) return Sentiment.Positive;
+//            if (score < -0.5) return Sentiment.Negative;
+//            return Sentiment.Neutral;
+//        }
+
+//        public List<string> ExtractEntities(Review review)
+//        {
+//            var entities = new List<string>();
+//            var words = review.ProcessedText.Split(' ');
+
+//            foreach (var entity in entityKeywords)
+//            {
+//                foreach (var keyword in entity.Value)
+//                {
+//                    if (review.ProcessedText.Contains(keyword) && !entities.Contains(entity.Key))
+//                    {
+//                        entities.Add(entity.Key);
+//                        break;
+//                    }
+//                }
+//            }
+
+//            return entities;
+//        }
+
+//        public Dictionary<string, EntityAnalysis> AnalyzeReviews(List<Review> reviews)
+//        {
+//            var entityAnalysis = new Dictionary<string, EntityAnalysis>();
+
+//            foreach (var review in reviews)
+//            {
+//                var processedReview = PreprocessReview(review);
+//                review.Sentiment = AnalyzeSentiment(processedReview);
+//                review.Entities = ExtractEntities(processedReview);
+
+//                foreach (var entity in review.Entities)
+//                {
+//                    if (!entityAnalysis.ContainsKey(entity))
+//                    {
+//                        entityAnalysis[entity] = new EntityAnalysis { Entity = entity };
+//                    }
+
+//                    entityAnalysis[entity].TotalMentions++;
+
+//                    switch (review.Sentiment)
+//                    {
+//                        case Sentiment.Positive:
+//                            entityAnalysis[entity].PositiveMentions++;
+//                            break;
+//                        case Sentiment.Negative:
+//                            entityAnalysis[entity].NegativeMentions++;
+//                            break;
+//                        case Sentiment.Neutral:
+//                            entityAnalysis[entity].NeutralMentions++;
+//                            break;
+//                    }
+//                }
+//            }
+
+//            return entityAnalysis;
+//        }
+
+//        public void GenerateReport(List<Review> reviews)
+//        {
+//            Console.WriteLine("========================================");
+//            Console.WriteLine("АНАЛИЗАТОР ОТЗЫВОВ О ТОВАРЕ");
+//            Console.WriteLine("========================================");
+
+//            var entityAnalysis = AnalyzeReviews(reviews);
+
+//            Console.WriteLine($"\nВсего проанализировано отзывов: {reviews.Count}");
+//            Console.WriteLine($"\nРаспределение тональности:");
+
+//            var sentimentCounts = reviews.GroupBy(r => r.Sentiment)
+//                .Select(g => new { Sentiment = g.Key, Count = g.Count() })
+//                .ToList();
+
+//            foreach (var item in sentimentCounts)
+//            {
+//                double percentage = (item.Count * 100.0) / reviews.Count;
+//                Console.WriteLine($"  {item.Sentiment}: {item.Count} ({percentage:F1}%)");
+//            }
+
+//            Console.WriteLine($"\nСредний рейтинг: {reviews.Average(r => r.Rating):F1}/5");
+
+//            Console.WriteLine("\n========================================");
+//            Console.WriteLine("АНАЛИЗ ПО СУЩНОСТЯМ");
+//            Console.WriteLine("========================================");
+
+//            foreach (var entity in entityAnalysis.Values.OrderByDescending(e => e.TotalMentions))
+//            {
+//                Console.WriteLine($"\n{entity.Entity}:");
+//                Console.WriteLine($"  Упоминаний: {entity.TotalMentions}");
+//                Console.WriteLine($"  Позитивных: {entity.PositiveMentions} ({entity.PositivePercentage:F1}%)");
+//                Console.WriteLine($"  Негативных: {entity.NegativeMentions} ({entity.NegativePercentage:F1}%)");
+//                Console.WriteLine($"  Нейтральных: {entity.NeutralMentions}");
+//            }
+
+//            var problematicAspects = entityAnalysis.Values
+//                .Where(e => e.TotalMentions >= 3)
+//                .OrderByDescending(e => e.ProblemScore)
+//                .Take(3)
+//                .ToList();
+
+//            var bestAspects = entityAnalysis.Values
+//                .Where(e => e.TotalMentions >= 3)
+//                .OrderByDescending(e => e.QualityScore)
+//                .Take(3)
+//                .ToList();
+
+//            Console.WriteLine("\n========================================");
+//            Console.WriteLine("ИТОГОВЫЙ ОТЧЕТ");
+//            Console.WriteLine("========================================");
+
+//            Console.WriteLine("\nТОП-3 ПРОБЛЕМНЫХ АСПЕКТОВ:");
+//            for (int i = 0; i < problematicAspects.Count; i++)
+//            {
+//                var aspect = problematicAspects[i];
+//                Console.WriteLine($"  {i + 1}. {aspect.Entity}");
+//                Console.WriteLine($"     Негативных отзывов: {aspect.NegativePercentage:F1}%");
+//                Console.WriteLine($"     Позитивных отзывов: {aspect.PositivePercentage:F1}%");
+//            }
+
+//            Console.WriteLine("\nТОП-3 ЛУЧШИХ АСПЕКТОВ:");
+//            for (int i = 0; i < bestAspects.Count; i++)
+//            {
+//                var aspect = bestAspects[i];
+//                Console.WriteLine($"  {i + 1}. {aspect.Entity}");
+//                Console.WriteLine($"     Позитивных отзывов: {aspect.PositivePercentage:F1}%");
+//                Console.WriteLine($"     Негативных отзывов: {aspect.NegativePercentage:F1}%");
+//            }
+//        }
+//    }
+
+//    class Program
+//    {
+//        static void Main(string[] args)
+//        {
+//            var reviews = new List<Review>
+//            {
+//                new Review("1", "Отличный телефон! Батарея держит очень долго, экран яркий и четкий. Доставка быстрая.", 5, DateTime.Now.AddDays(-10)),
+//                new Review("2", "Плохая батарея, быстро разряжается. Экран хороший, но доставка заняла 2 недели.", 2, DateTime.Now.AddDays(-9)),
+//                new Review("3", "Нормальный телефон за свои деньги. Батарея средняя, экран неплохой. Доставка вовремя.", 3, DateTime.Now.AddDays(-8)),
+//                new Review("4", "Ужасный товар! Батарея не держит и часа, экран тусклый. Доставка медленная, курьер грубил.", 1, DateTime.Now.AddDays(-7)),
+//                new Review("5", "Очень доволен покупкой. Батарея отличная, экран просто супер. Камера делает хорошие фото.", 5, DateTime.Now.AddDays(-6)),
+//                new Review("6", "Цена завышена. Батарея слабая, экран царапается. Звук тихий, качество сборки плохое.", 2, DateTime.Now.AddDays(-5)),
+//                new Review("7", "Хороший телефон для работы. Производительность на высоте, батарея держит весь день.", 4, DateTime.Now.AddDays(-4)),
+//                new Review("8", "Не рекомендую. Батарея садится за 3 часа, экран с желтым оттенком. Доставка быстрая, но товар не стоит денег.", 2, DateTime.Now.AddDays(-3)),
+//                new Review("9", "Великолепно! Лучшая покупка за последнее время. Экран, батарея, камера - все на высоте.", 5, DateTime.Now.AddDays(-2)),
+//                new Review("10", "Средний телефон. Ничего выдающегося, но и плохого сказать не могу. Батарея на день хватает.", 3, DateTime.Now.AddDays(-1))
+//            };
+
+//            var analyzer = new ReviewAnalyzer();
+//            analyzer.GenerateReport(reviews);
+
+//            Console.WriteLine("\nНажмите любую клавишу для выхода...");
+//            Console.ReadKey();
+//        }
+//    }
+//}
+
+//// 4 задание
+//namespace ResourceAllocation
+//{
+//    public enum Priority
+//    {
+//        Высокий,
+//        Средний,
+//        Низкий
+//    }
+
+//    public enum TeamAvailability
+//    {
+//        Полная,
+//        Частичная,
+//        Отсутствует
+//    }
+
+//    public class Project
+//    {
+//        public string Id { get; set; }
+//        public string Name { get; set; }
+//        public Priority Priority { get; set; }
+//        public decimal EstimatedCost { get; set; }
+//        public decimal ExpectedRevenue { get; set; }
+//        public TeamAvailability TeamAvailability { get; set; }
+//        public bool IsSelected { get; set; }
+
+//        public decimal ROI => EstimatedCost > 0 ? (ExpectedRevenue - EstimatedCost) / EstimatedCost * 100 : 0;
+
+//        public Project(string id, string name, Priority priority, decimal cost, decimal revenue, TeamAvailability team)
+//        {
+//            Id = id;
+//            Name = name;
+//            Priority = priority;
+//            EstimatedCost = cost;
+//            ExpectedRevenue = revenue;
+//            TeamAvailability = team;
+//            IsSelected = false;
+//        }
+
+//        public double CalculateScore()
+//        {
+//            double priorityScore = Priority switch
+//            {
+//                Priority.Высокий => 3.0,
+//                Priority.Средний => 2.0,
+//                Priority.Низкий => 1.0,
+//                _ => 1.0
+//            };
+
+//            double teamScore = TeamAvailability switch
+//            {
+//                TeamAvailability.Полная => 1.5,
+//                TeamAvailability.Частичная => 1.0,
+//                TeamAvailability.Отсутствует => 0.3,
+//                _ => 0.5
+//            };
+
+//            double roiScore = (double)ROI / 50.0;
+
+//            return priorityScore * teamScore * Math.Max(roiScore, 0.1);
+//        }
+
+//        public override string ToString()
+//        {
+//            return $"{Name} (Приоритет: {Priority}, Стоимость: {EstimatedCost:C}, ROI: {ROI:F1}%, Команда: {TeamAvailability})";
+//        }
+//    }
+
+//    public class ResourceAllocator
+//    {
+//        private List<Project> allProjects;
+//        private decimal totalBudget;
+
+//        public ResourceAllocator(List<Project> projects, decimal budget)
+//        {
+//            allProjects = projects;
+//            totalBudget = budget;
+//        }
+
+//        private int CompareProjects(Project a, Project b)
+//        {
+//            double scoreA = a.CalculateScore();
+//            double scoreB = b.CalculateScore();
+
+//            int scoreComparison = scoreB.CompareTo(scoreA);
+//            if (scoreComparison != 0) return scoreComparison;
+
+//            int costComparison = a.EstimatedCost.CompareTo(b.EstimatedCost);
+//            if (costComparison != 0) return costComparison;
+
+//            return a.Priority.CompareTo(b.Priority);
+//        }
+
+//        public List<Project> SelectProjects()
+//        {
+//            var selectedProjects = new List<Project>();
+//            decimal remainingBudget = totalBudget;
+
+//            var availableProjects = allProjects
+//                .Where(p => p.TeamAvailability != TeamAvailability.Отсутствует)
+//                .OrderByDescending(p => p.CalculateScore())
+//                .ThenBy(p => p.EstimatedCost)
+//                .ToList();
+
+//            if (availableProjects.Count == 0)
+//            {
+//                Console.WriteLine("Нет проектов с доступными командами.");
+//                return selectedProjects;
+//            }
+
+//            decimal minCost = availableProjects.Min(p => p.EstimatedCost);
+
+//            if (totalBudget < minCost)
+//            {
+//                Console.WriteLine($"Бюджет ({totalBudget:C}) меньше стоимости самого дешевого проекта ({minCost:C}).");
+//                Console.WriteLine("Варианты действий:");
+//                Console.WriteLine("1. Увеличить бюджет");
+//                Console.WriteLine("2. Пересмотреть стоимость проектов");
+//                Console.WriteLine("3. Искать более дешевые проекты");
+//                return selectedProjects;
+//            }
+
+//            Console.WriteLine("Начинаем распределение бюджета...");
+//            Console.WriteLine($"Общий бюджет: {totalBudget:C}");
+//            Console.WriteLine($"Минимальная стоимость проекта: {minCost:C}");
+//            Console.WriteLine();
+
+//            int iteration = 1;
+
+//            while (remainingBudget > 0 && availableProjects.Count > 0)
+//            {
+//                Console.WriteLine($"=== Итерация {iteration} ===");
+//                Console.WriteLine($"Остаток бюджета: {remainingBudget:C}");
+
+//                bool projectSelected = false;
+
+//                foreach (var project in availableProjects.ToList())
+//                {
+//                    if (project.EstimatedCost <= remainingBudget)
+//                    {
+//                        project.IsSelected = true;
+//                        selectedProjects.Add(project);
+//                        remainingBudget -= project.EstimatedCost;
+//                        availableProjects.Remove(project);
+
+//                        Console.WriteLine($"Выбран проект: {project.Name}");
+//                        Console.WriteLine($"Стоимость: {project.EstimatedCost:C}, Остаток: {remainingBudget:C}");
+
+//                        projectSelected = true;
+//                        break;
+//                    }
+//                }
+
+//                if (!projectSelected)
+//                {
+//                    if (availableProjects.All(p => p.EstimatedCost > remainingBudget))
+//                    {
+//                        Console.WriteLine($"Недостаточно бюджета для оставшихся проектов. Минимальная стоимость: {availableProjects.Min(p => p.EstimatedCost):C}");
+
+//                        var alternativeProject = FindAlternativeProject(selectedProjects, availableProjects, totalBudget);
+//                        if (alternativeProject != null)
+//                        {
+//                            Console.WriteLine($"Найден альтернативный проект: {alternativeProject.Name}");
+//                            Console.WriteLine($"Стоимость: {alternativeProject.EstimatedCost:C}");
+
+//                            var toRemove = selectedProjects.LastOrDefault();
+//                            if (toRemove != null)
+//                            {
+//                                Console.WriteLine($"Удаляем проект: {toRemove.Name}");
+//                                selectedProjects.Remove(toRemove);
+//                                remainingBudget += toRemove.EstimatedCost;
+//                                toRemove.IsSelected = false;
+
+//                                alternativeProject.IsSelected = true;
+//                                selectedProjects.Add(alternativeProject);
+//                                remainingBudget -= alternativeProject.EstimatedCost;
+//                                availableProjects.Remove(alternativeProject);
+
+//                                projectSelected = true;
+//                            }
+//                        }
+
+//                        if (!projectSelected)
+//                        {
+//                            Console.WriteLine("Бюджет исчерпан или недостаточен для оставшихся проектов.");
+//                            break;
+//                        }
+//                    }
+//                }
+
+//                iteration++;
+//                Console.WriteLine();
+//            }
+
+//            return selectedProjects;
+//        }
+
+//        private Project FindAlternativeProject(List<Project> selected, List<Project> available, decimal budget)
+//        {
+//            var candidate = available
+//                .Where(p => p.EstimatedCost <= budget)
+//                .OrderByDescending(p => p.CalculateScore())
+//                .FirstOrDefault();
+
+//            return candidate;
+//        }
+
+//        private List<Project> OptimizePortfolio(List<Project> selected)
+//        {
+//            decimal currentCost = selected.Sum(p => p.EstimatedCost);
+//            decimal currentValue = selected.Sum(p => p.ExpectedRevenue);
+
+//            var notSelected = allProjects
+//                .Where(p => !p.IsSelected && p.TeamAvailability != TeamAvailability.Отсутствует)
+//                .OrderByDescending(p => p.CalculateScore())
+//                .ToList();
+
+//            foreach (var project in notSelected)
+//            {
+//                if (project.EstimatedCost <= totalBudget - currentCost)
+//                {
+//                    selected.Add(project);
+//                    project.IsSelected = true;
+//                    currentCost += project.EstimatedCost;
+//                    currentValue += project.ExpectedRevenue;
+//                }
+//            }
+
+//            return selected;
+//        }
+
+//        public void PrintAllocationReport(List<Project> selectedProjects)
+//        {
+//            Console.WriteLine("========================================");
+//            Console.WriteLine("ОТЧЕТ О РАСПРЕДЕЛЕНИИ РЕСУРСОВ");
+//            Console.WriteLine("========================================");
+
+//            Console.WriteLine($"\nОбщий бюджет: {totalBudget:C}");
+
+//            if (selectedProjects.Count == 0)
+//            {
+//                Console.WriteLine("\nНе выбрано ни одного проекта.");
+//                return;
+//            }
+
+//            decimal totalCost = selectedProjects.Sum(p => p.EstimatedCost);
+//            decimal totalRevenue = selectedProjects.Sum(p => p.ExpectedRevenue);
+//            decimal totalROI = totalCost > 0 ? (totalRevenue - totalCost) / totalCost * 100 : 0;
+//            decimal remainingBudget = totalBudget - totalCost;
+
+//            Console.WriteLine($"\nВыбрано проектов: {selectedProjects.Count}");
+//            Console.WriteLine($"Общая стоимость: {totalCost:C}");
+//            Console.WriteLine($"Ожидаемый доход: {totalRevenue:C}");
+//            Console.WriteLine($"Общий ROI: {totalROI:F1}%");
+//            Console.WriteLine($"Неиспользованный бюджет: {remainingBudget:C}");
+
+//            Console.WriteLine($"\nЭффективность использования бюджета: {(totalCost / totalBudget * 100):F1}%");
+
+//            Console.WriteLine("\n========================================");
+//            Console.WriteLine("ВЫБРАННЫЕ ПРОЕКТЫ:");
+//            Console.WriteLine("========================================");
+
+//            int index = 1;
+//            foreach (var project in selectedProjects.OrderByDescending(p => p.CalculateScore()))
+//            {
+//                Console.WriteLine($"\n{index}. {project}");
+//                Console.WriteLine($"   Оценка: {project.CalculateScore():F2}");
+//                index++;
+//            }
+
+//            var notSelected = allProjects.Where(p => !p.IsSelected && p.TeamAvailability != TeamAvailability.Отсутствует).ToList();
+//            if (notSelected.Count > 0)
+//            {
+//                Console.WriteLine("\n========================================");
+//                Console.WriteLine("НЕВЫБРАННЫЕ ПРОЕКТЫ (из-за бюджета):");
+//                Console.WriteLine("========================================");
+
+//                foreach (var project in notSelected.OrderByDescending(p => p.CalculateScore()))
+//                {
+//                    Console.WriteLine($"\n• {project}");
+//                    Console.WriteLine($"  Требуемый бюджет: {project.EstimatedCost:C}");
+//                }
+//            }
+//        }
+//    }
+
+//    class Program
+//    {
+//        static void Main(string[] args)
+//        {
+//            var projects = new List<Project>
+//            {
+//                new Project("P1", "Разработка мобильного приложения", Priority.Высокий, 50000m, 150000m, TeamAvailability.Полная),
+//                new Project("P2", "Обновление корпоративного портала", Priority.Средний, 30000m, 75000m, TeamAvailability.Частичная),
+//                new Project("P3", "Внедрение CRM системы", Priority.Высокий, 80000m, 200000m, TeamAvailability.Полная),
+//                new Project("P4", "Создание аналитической панели", Priority.Средний, 25000m, 45000m, TeamAvailability.Полная),
+//                new Project("P5", "Миграция на новую платформу", Priority.Низкий, 60000m, 90000m, TeamAvailability.Частичная),
+//                new Project("P6", "Разработка API для партнеров", Priority.Высокий, 40000m, 120000m, TeamAvailability.Отсутствует),
+//                new Project("P7", "Оптимизация баз данных", Priority.Средний, 35000m, 70000m, TeamAvailability.Полная),
+//                new Project("P8", "Обновление системы безопасности", Priority.Высокий, 45000m, 80000m, TeamAvailability.Частичная),
+//                new Project("P9", "Создание чат-бота", Priority.Низкий, 15000m, 30000m, TeamAvailability.Полная),
+//                new Project("P10", "Разработка системы отчетности", Priority.Средний, 28000m, 50000m, TeamAvailability.Полная)
+//            };
+
+//            Console.WriteLine("Введите бюджет для распределения (например, 100000):");
+//            if (!decimal.TryParse(Console.ReadLine(), out decimal budget))
+//            {
+//                budget = 150000m;
+//                Console.WriteLine($"Используется бюджет по умолчанию: {budget:C}");
+//            }
+
+//            var allocator = new ResourceAllocator(projects, budget);
+
+//            Console.WriteLine("\nДоступные проекты:");
+//            foreach (var project in projects)
+//            {
+//                Console.WriteLine($"• {project}");
+//            }
+
+//            Console.WriteLine("\nНажмите Enter для начала распределения...");
+//            Console.ReadLine();
+
+//            var selectedProjects = allocator.SelectProjects();
+
+//            allocator.PrintAllocationReport(selectedProjects);
+
+//            Console.WriteLine("\nНажмите любую клавишу для выхода...");
+//            Console.ReadKey();
+//        }
+//    }
+//}
+
+//// 5 задание
+//namespace SimpleTrafficLight
+//{
+//    class Program
+//    {
+//        static void Main()
+//        {
+//            Console.WriteLine("=== УМНЫЙ СВЕТОФОР НА ПЕРЕКРЕСТКЕ ===\n");
+
+//            bool busWaiting = false;
+//            bool pedestrianPressed = false;
+//            bool isNight = false;
+//            int timeSincePedestrian = 60;
+//            int currentTime = 14;
+
+//            Console.WriteLine($"Текущее время: {currentTime}:00");
+
+//            for (int cycle = 1; cycle <= 8; cycle++)
+//            {
+//                Console.WriteLine($"\n--- Цикл {cycle} ---");
+
+//                isNight = (currentTime >= 23 || currentTime < 6);
+
+//                if (isNight)
+//                {
+//                    Console.WriteLine("НОЧНОЙ РЕЖИМ: мигающий желтый");
+//                    Thread.Sleep(2000);
+//                    currentTime = (currentTime + 1) % 24;
+//                    continue;
+//                }
+
+//                Random rnd = new Random();
+
+//                if (rnd.Next(0, 100) < 15)
+//                {
+//                    busWaiting = true;
+//                    Console.WriteLine("Обнаружен автобус!");
+//                }
+
+//                if (rnd.Next(0, 100) < 25 && timeSincePedestrian >= 30)
+//                {
+//                    pedestrianPressed = true;
+//                    Console.WriteLine("Пешеход нажал кнопку");
+//                }
+
+//                timeSincePedestrian += 10;
+
+//                if (busWaiting)
+//                {
+//                    Console.WriteLine("\nПРИОРИТЕТ АВТОБУСУ");
+//                    Console.WriteLine("Красный для всех машин");
+//                    Console.WriteLine("Зеленый для автобуса - 15 секунд");
+//                    Thread.Sleep(1500);
+//                    busWaiting = false;
+//                    continue;
+//                }
+
+//                if (pedestrianPressed && timeSincePedestrian >= 30)
+//                {
+//                    Console.WriteLine("\nПЕШЕХОДНАЯ ФАЗА");
+//                    Console.WriteLine("Красный для машин");
+//                    Console.WriteLine("Зеленый для пешеходов - 20 секунд");
+//                    Thread.Sleep(2000);
+//                    pedestrianPressed = false;
+//                    timeSincePedestrian = 0;
+//                    continue;
+//                }
+
+//                Console.WriteLine("\nФаза 1: Движение Север-Юг");
+//                Console.WriteLine("  Север-Юг: ЗЕЛЕНЫЙ (30 сек)");
+//                Console.WriteLine("  Запад-Восток: КРАСНЫЙ");
+//                Console.WriteLine("  Пешеходы: КРАСНЫЙ");
+//                Thread.Sleep(3000);
+
+//                Console.WriteLine("\nФаза 2: Поворот налево");
+//                Console.WriteLine("  Север-Юг: ЖЕЛТЫЙ, потом КРАСНЫЙ");
+//                Console.WriteLine("  Поворот налево: ЗЕЛЕНЫЙ (10 сек)");
+//                Thread.Sleep(1000);
+
+//                Console.WriteLine("\nПауза: Все КРАСНЫЙ (2 сек)");
+//                Thread.Sleep(200);
+
+//                Console.WriteLine("\nФаза 3: Движение Запад-Восток");
+//                Console.WriteLine("  Запад-Восток: ЗЕЛЕНЫЙ (30 сек)");
+//                Console.WriteLine("  Север-Юг: КРАСНЫЙ");
+//                Console.WriteLine("  Пешеходы: КРАСНЫЙ");
+//                Thread.Sleep(3000);
+
+//                Console.WriteLine("\nФаза 4: Поворот налево");
+//                Console.WriteLine("  Запад-Восток: ЖЕЛТЫЙ, потом КРАСНЫЙ");
+//                Console.WriteLine("  Поворот налево: ЗЕЛЕНЫЙ (10 сек)");
+//                Thread.Sleep(1000);
+
+//                Console.WriteLine("\nПауза: Все КРАСНЫЙ (2 сек)");
+//                Thread.Sleep(200);
+
+//                currentTime = (currentTime + 1) % 24;
+//            }
+
+//            Console.WriteLine("\n=== ИТОГ ===");
+//            Console.WriteLine($"Время: {currentTime}:00");
+//            Console.WriteLine($"С последнего пешеходного света: {timeSincePedestrian} сек");
+//            Console.WriteLine($"Режим: {(isNight ? "НОЧНОЙ" : "ДНЕВНОЙ")}");
+
+//            Console.WriteLine("\nНажмите Enter для выхода...");
+//            Console.ReadLine();
+//        }
+//    }
+//}
+
+//// 6 задание
+//namespace FinancialAdvisor
+//{
+//    class Program
+//    {
+//        static void Main()
+//        {
+//            Console.WriteLine("=== ФИНАНСОВЫЙ КОНСУЛЬТАНТ ===\n");
+
+//            Console.Write("Введите ваш возраст: ");
+//            int age = int.Parse(Console.ReadLine());
+
+//            Console.Write("Введите ваш ежемесячный доход (руб): ");
+//            decimal income = decimal.Parse(Console.ReadLine());
+
+//            Console.Write("Введите ваши ежемесячные траты (руб): ");
+//            decimal expenses = decimal.Parse(Console.ReadLine());
+
+//            Console.Write("Введите сумму ваших сбережений (руб): ");
+//            decimal savings = decimal.Parse(Console.ReadLine());
+
+//            Console.WriteLine("\nВыберите финансовую цель:");
+//            Console.WriteLine("1. Подушка безопасности");
+//            Console.WriteLine("2. Покупка жилья");
+//            Console.WriteLine("3. Пенсионные накопления");
+//            Console.Write("Ваш выбор (1-3): ");
+
+//            int goalChoice = int.Parse(Console.ReadLine());
+//            string goal = goalChoice switch
+//            {
+//                1 => "подушка безопасности",
+//                2 => "покупка жилья",
+//                3 => "пенсия",
+//                _ => "подушка безопасности"
+//            };
+
+//            decimal freeMoney = income - expenses;
+
+//            string riskProfile;
+//            if (age < 30) riskProfile = "агрессивный";
+//            else if (age < 50) riskProfile = "умеренный";
+//            else riskProfile = "консервативный";
+
+//            decimal emergencyFundNeeded = expenses * 6;
+
+//            if (savings < emergencyFundNeeded && goal != "подушка безопасности")
+//            {
+//                Console.WriteLine($"\nВНИМАНИЕ: Недостаточно сбережений!");
+//                Console.WriteLine($"У вас есть: {savings:C}");
+//                Console.WriteLine($"Нужно для подушки безопасности: {emergencyFundNeeded:C}");
+//                Console.WriteLine("Сначала сформируйте подушку безопасности!");
+//                goal = "подушка безопасности";
+//            }
+
+//            Console.WriteLine($"\n=== ВАШ ФИНАНСОВЫЙ ПЛАН ===");
+//            Console.WriteLine($"Возраст: {age} лет");
+//            Console.WriteLine($"Доход: {income:C} в месяц");
+//            Console.WriteLine($"Траты: {expenses:C} в месяц");
+//            Console.WriteLine($"Свободные средства: {freeMoney:C} в месяц");
+//            Console.WriteLine($"Сбережения: {savings:C}");
+//            Console.WriteLine($"Цель: {goal}");
+//            Console.WriteLine($"Риск-профиль: {riskProfile}");
+
+//            if (freeMoney <= 0)
+//            {
+//                Console.WriteLine("\nКРИТИЧЕСКАЯ СИТУАЦИЯ!");
+//                Console.WriteLine("У вас нет свободных средств!");
+//                Console.WriteLine("Рекомендации:");
+//                Console.WriteLine("1. Увеличить доход");
+//                Console.WriteLine("2. Сократить расходы");
+//                return;
+//            }
+
+//            decimal monthlyInvestment = freeMoney * 0.3m;
+
+//            Console.WriteLine($"\n=== РЕКОМЕНДАЦИИ ===");
+//            Console.WriteLine($"Откладывайте в месяц: {monthlyInvestment:C}");
+
+//            if (goal == "подушка безопасности")
+//            {
+//                decimal missing = emergencyFundNeeded - savings;
+//                decimal monthsNeeded = missing / monthlyInvestment;
+
+//                Console.WriteLine($"\nЦЕЛЬ: ПОДУШКА БЕЗОПАСНОСТИ");
+//                Console.WriteLine($"Нужно накопить: {emergencyFundNeeded:C}");
+//                Console.WriteLine($"Уже есть: {savings:C}");
+//                Console.WriteLine($"Осталось накопить: {missing:C}");
+//                Console.WriteLine($"При откладывании {monthlyInvestment:C} в месяц:");
+//                Console.WriteLine($"Достигнете цели за {Math.Ceiling(monthsNeeded)} месяцев");
+//                Console.WriteLine("\nРекомендуемое размещение:");
+//                Console.WriteLine("• 100% - Банковский вклад или накопительный счет");
+//            }
+//            else if (goal == "покупка жилья")
+//            {
+//                Console.WriteLine($"\nЦЕЛЬ: ПОКУПКА ЖИЛЬЯ");
+//                decimal apartmentCost = expenses * 120;
+//                Console.WriteLine($"Примерная стоимость жилья: {apartmentCost:C}");
+//                Console.WriteLine($"Первоначальный взнос (20%): {apartmentCost * 0.2m:C}");
+
+//                if (age < 40)
+//                {
+//                    Console.WriteLine("\nРекомендуемое распределение:");
+//                    Console.WriteLine("• 50% - Банковский вклад (на первоначальный взнос)");
+//                    Console.WriteLine("• 30% - Облигации");
+//                    Console.WriteLine("• 20% - Акции");
+//                }
+//                else
+//                {
+//                    Console.WriteLine("\nРекомендуемое распределение:");
+//                    Console.WriteLine("• 70% - Банковский вклад");
+//                    Console.WriteLine("• 30% - Облигации");
+//                }
+
+//                Console.WriteLine($"\nУчтите инфляцию 7% в год");
+//                Console.WriteLine($"Через 5 лет квартира будет стоить ~{apartmentCost * 1.4m:C}");
+//            }
+//            else if (goal == "пенсия")
+//            {
+//                Console.WriteLine($"\nЦЕЛЬ: ПЕНСИОННЫЕ НАКОПЛЕНИЯ");
+//                int yearsToPension = Math.Max(60 - age, 5);
+//                Console.WriteLine($"Лет до пенсии: {yearsToPension}");
+
+//                decimal monthlyPensionNeed = expenses * 0.7m;
+//                decimal totalNeed = monthlyPensionNeed * 12 * 20;
+
+//                Console.WriteLine($"\nРасчеты:");
+//                Console.WriteLine($"Нужно на пенсии в месяц: {monthlyPensionNeed:C}");
+//                Console.WriteLine($"Нужно накопить к пенсии: {totalNeed:C}");
+
+//                if (age < 40)
+//                {
+//                    Console.WriteLine("\nРекомендуемое распределение:");
+//                    Console.WriteLine("• 20% - Банковский вклад");
+//                    Console.WriteLine("• 30% - Облигации");
+//                    Console.WriteLine("• 50% - Акции и фонды");
+//                }
+//                else if (age < 55)
+//                {
+//                    Console.WriteLine("\nРекомендуемое распределение:");
+//                    Console.WriteLine("• 30% - Банковский вклад");
+//                    Console.WriteLine("• 40% - Облигации");
+//                    Console.WriteLine("• 30% - Акции и фонды");
+//                }
+//                else
+//                {
+//                    Console.WriteLine("\nРекомендуемое распределение:");
+//                    Console.WriteLine("• 50% - Банковский вклад");
+//                    Console.WriteLine("• 40% - Облигации");
+//                    Console.WriteLine("• 10% - Акции и фонды");
+//                }
+
+//                Console.WriteLine($"\nУчтите инфляцию 7% в год");
+//                decimal inflationFactor = (decimal)Math.Pow(1.07, yearsToPension);
+//                Console.WriteLine($"Через {yearsToPension} лет потребуется: {totalNeed * inflationFactor:C}");
+//            }
+//        }
+//    }
+//}
+
+//// 7 задание
+//namespace SmartHomeInterpreter
+//{
+//    class Program
+//    {
+//        static void Main()
+//        {
+//            Console.WriteLine("=== ИНТЕРПРЕТАТОР КОМАНД УМНОГО ДОМА ===\n");
+
+//            SmartHomeSystem home = new SmartHomeSystem();
+
+//            Console.WriteLine("Доступные устройства:");
+//            home.PrintDevices();
+
+//            Console.WriteLine("\nПримеры команд:");
+//            Console.WriteLine("light.kitchen.on");
+//            Console.WriteLine("light.kitchen.off");
+//            Console.WriteLine("light.livingroom.on");
+//            Console.WriteLine("thermostat.set(22)");
+//            Console.WriteLine("blinds.open(50)");
+//            Console.WriteLine("oven.on(180)");
+//            Console.WriteLine("oven.off");
+//            Console.WriteLine("exit - для выхода\n");
+
+//            while (true)
+//            {
+//                Console.Write("Введите команду: ");
+//                string command = Console.ReadLine().ToLower().Trim();
+
+//                if (command == "exit")
+//                {
+//                    Console.WriteLine("Выход из системы...");
+//                    break;
+//                }
+
+//                if (string.IsNullOrEmpty(command))
+//                {
+//                    Console.WriteLine("Ошибка: пустая команда\n");
+//                    continue;
+//                }
+
+//                Console.WriteLine($"\nОбработка команды: {command}");
+
+//                bool success = home.ExecuteCommand(command);
+
+//                if (success)
+//                {
+//                    Console.WriteLine("Команда выполнена успешно\n");
+//                }
+//                else
+//                {
+//                    Console.WriteLine("Ошибка выполнения команды\n");
+//                }
+
+//                Thread.Sleep(500);
+//            }
+
+//            Console.WriteLine("\n=== ЛОГ КОМАНД ===");
+//            home.PrintLog();
+
+//            Console.WriteLine("\nНажмите Enter для выхода...");
+//            Console.ReadLine();
+//        }
+//    }
+
+//    class SmartHomeSystem
+//    {
+//        private Dictionary<string, SmartDevice> devices = new Dictionary<string, SmartDevice>();
+//        private List<string> commandLog = new List<string>();
+//        private TimeOnly currentTime = new TimeOnly(14, 30);
+
+//        public SmartHomeSystem()
+//        {
+//            devices["light.kitchen"] = new SmartDevice("light.kitchen", new List<string> { "on", "off", "dim" });
+//            devices["light.livingroom"] = new SmartDevice("light.livingroom", new List<string> { "on", "off", "dim" });
+//            devices["light.bedroom"] = new SmartDevice("light.bedroom", new List<string> { "on", "off", "dim" });
+//            devices["thermostat"] = new SmartDevice("thermostat", new List<string> { "set", "get" });
+//            devices["blinds"] = new SmartDevice("blinds", new List<string> { "open", "close", "set" });
+//            devices["oven"] = new SmartDevice("oven", new List<string> { "on", "off" });
+//            devices["coffeemaker"] = new SmartDevice("coffeemaker", new List<string> { "on", "off", "brew" });
+//        }
+
+//        public void PrintDevices()
+//        {
+//            foreach (var device in devices)
+//            {
+//                Console.WriteLine($"{device.Key}: {string.Join(", ", device.Value.Actions)}");
+//            }
+//        }
+
+//        public bool ExecuteCommand(string commandText)
+//        {
+//            commandLog.Add($"{DateTime.Now:HH:mm:ss} - {commandText}");
+
+//            string[] parts = commandText.Split('.');
+
+//            if (parts.Length < 2)
+//            {
+//                Console.WriteLine("Ошибка: неправильный формат команды");
+//                return false;
+//            }
+
+//            string deviceName = parts[0];
+//            string actionWithParam = parts[^1];
+
+//            for (int i = 1; i < parts.Length - 1; i++)
+//            {
+//                deviceName += "." + parts[i];
+//            }
+
+//            string action = actionWithParam;
+//            string parameter = null;
+
+//            int paramStart = actionWithParam.IndexOf('(');
+//            if (paramStart != -1 && actionWithParam.EndsWith(")"))
+//            {
+//                action = actionWithParam.Substring(0, paramStart);
+//                parameter = actionWithParam.Substring(paramStart + 1, actionWithParam.Length - paramStart - 2);
+//            }
+
+//            if (!devices.ContainsKey(deviceName))
+//            {
+//                Console.WriteLine($"Ошибка: устройство '{deviceName}' не найдено");
+//                return false;
+//            }
+
+//            SmartDevice device = devices[deviceName];
+
+//            if (!device.Actions.Contains(action))
+//            {
+//                Console.WriteLine($"Ошибка: действие '{action}' не поддерживается устройством '{deviceName}'");
+//                return false;
+//            }
+
+//            if (!CheckSafety(deviceName, action, parameter))
+//            {
+//                Console.WriteLine("Ошибка: команда не прошла проверку безопасности");
+//                return false;
+//            }
+
+//            bool result = device.Execute(action, parameter);
+
+//            if (result)
+//            {
+//                Console.WriteLine($"Команда отправлена: {deviceName}.{action}({parameter})");
+//                commandLog[commandLog.Count - 1] += " - УСПЕХ";
+//            }
+//            else
+//            {
+//                Console.WriteLine($"Ошибка выполнения: {deviceName}.{action}({parameter})");
+//                commandLog[commandLog.Count - 1] += " - ОШИБКА";
+//            }
+
+//            return result;
+//        }
+
+//        private bool CheckSafety(string deviceName, string action, string parameter)
+//        {
+//            currentTime = currentTime.AddMinutes(10);
+
+//            bool isNightTime = currentTime.Hour >= 22 || currentTime.Hour < 6;
+
+//            if (deviceName == "oven" && action == "on" && isNightTime)
+//            {
+//                Console.WriteLine($"Безопасность: нельзя включать духовку ночью ({currentTime:HH:mm})");
+//                return false;
+//            }
+
+//            if (deviceName.StartsWith("light") && action == "on" && isNightTime)
+//            {
+//                Console.WriteLine("Безопасность: ночной режим - только 50% яркости");
+//                return true;
+//            }
+
+//            if (deviceName == "thermostat" && action == "set" && parameter != null)
+//            {
+//                if (int.TryParse(parameter, out int temp))
+//                {
+//                    if (temp < 10 || temp > 30)
+//                    {
+//                        Console.WriteLine($"Безопасность: температура {temp}°C вне допустимого диапазона (10-30)");
+//                        return false;
+//                    }
+//                }
+//            }
+
+//            if (deviceName == "blinds" && action == "open" && parameter != null)
+//            {
+//                if (int.TryParse(parameter, out int percent))
+//                {
+//                    if (percent < 0 || percent > 100)
+//                    {
+//                        Console.WriteLine($"Безопасность: процент открытия {percent}% вне диапазона (0-100)");
+//                        return false;
+//                    }
+//                }
+//            }
+
+//            return true;
+//        }
+
+//        public void PrintLog()
+//        {
+//            foreach (string logEntry in commandLog)
+//            {
+//                Console.WriteLine(logEntry);
+//            }
+//        }
+//    }
+
+//    class SmartDevice
+//    {
+//        public string Name { get; }
+//        public List<string> Actions { get; }
+//        public string Status { get; private set; }
+
+//        public SmartDevice(string name, List<string> actions)
+//        {
+//            Name = name;
+//            Actions = actions;
+//            Status = "off";
+//        }
+
+//        public bool Execute(string action, string parameter)
+//        {
+//            Console.WriteLine($"Устройство {Name}: {action}({parameter})");
+
+//            if (Name.StartsWith("light"))
+//            {
+//                if (action == "on")
+//                {
+//                    Status = "on";
+//                    Console.WriteLine($"  Свет включен {(parameter != null ? $"яркость {parameter}%" : "")}");
+//                    return true;
+//                }
+//                else if (action == "off")
+//                {
+//                    Status = "off";
+//                    Console.WriteLine("  Свет выключен");
+//                    return true;
+//                }
+//                else if (action == "dim" && parameter != null)
+//                {
+//                    Status = $"dim({parameter})";
+//                    Console.WriteLine($"  Яркость установлена на {parameter}%");
+//                    return true;
+//                }
+//            }
+//            else if (Name == "thermostat")
+//            {
+//                if (action == "set" && parameter != null)
+//                {
+//                    Status = parameter;
+//                    Console.WriteLine($"  Температура установлена на {parameter}°C");
+//                    return true;
+//                }
+//                else if (action == "get")
+//                {
+//                    Console.WriteLine($"  Текущая температура: {Status}°C");
+//                    return true;
+//                }
+//            }
+//            else if (Name == "blinds")
+//            {
+//                if (action == "open" && parameter != null)
+//                {
+//                    Status = $"open({parameter})";
+//                    Console.WriteLine($"  Шторы открыты на {parameter}%");
+//                    return true;
+//                }
+//                else if (action == "close")
+//                {
+//                    Status = "closed";
+//                    Console.WriteLine("  Шторы закрыты");
+//                    return true;
+//                }
+//                else if (action == "set" && parameter != null)
+//                {
+//                    Status = $"set({parameter})";
+//                    Console.WriteLine($"  Положение штор: {parameter}%");
+//                    return true;
+//                }
+//            }
+//            else if (Name == "oven")
+//            {
+//                if (action == "on" && parameter != null)
+//                {
+//                    Status = $"on({parameter})";
+//                    Console.WriteLine($"  Духовка включена, температура {parameter}°C");
+//                    return true;
+//                }
+//                else if (action == "off")
+//                {
+//                    Status = "off";
+//                    Console.WriteLine("  Духовка выключена");
+//                    return true;
+//                }
+//            }
+//            else if (Name == "coffeemaker")
+//            {
+//                if (action == "brew")
+//                {
+//                    Status = "brewing";
+//                    Console.WriteLine("  Кофе готовится...");
+//                    Thread.Sleep(2000);
+//                    Console.WriteLine("  Кофе готов!");
+//                    Status = "ready";
+//                    return true;
+//                }
+//                else if (action == "on")
+//                {
+//                    Status = "on";
+//                    Console.WriteLine("  Кофеварка включена");
+//                    return true;
+//                }
+//                else if (action == "off")
+//                {
+//                    Status = "off";
+//                    Console.WriteLine("  Кофеварка выключена");
+//                    return true;
+//                }
+//            }
+
+//            return false;
+//        }
+//    }
+//}
+
+//// 8 задание
+//namespace NPCAIStrategy
+//{
+//    class Program
+//    {
+//        static void Main()
+//        {
+//            Console.WriteLine("=== ИИ ДЛЯ КОМПЬЮТЕРНОГО ПРОТИВНИКА ===\n");
+
+//            GameAI ai = new GameAI();
+
+//            for (int turn = 1; turn <= 10; turn++)
+//            {
+//                Console.WriteLine($"\n--- ХОД {turn} ---");
+//                ai.UpdateGameState();
+//                ai.ExecuteTurn();
+//            }
+
+//            Console.WriteLine("\n=== ИТОГИ ИГРЫ ===");
+//            ai.PrintStats();
+
+//            Console.WriteLine("\nНажмите Enter для выхода...");
+//            Console.ReadLine();
+//        }
+//    }
+
+//    public enum AIStrategy
+//    {
+//        Attack,
+//        Defense,
+//        Economy
+//    }
+
+//    public enum UnitType
+//    {
+//        Worker,
+//        Soldier,
+//        Archer,
+//        Cavalry,
+//        Building
+//    }
+
+//    public class GameUnit
+//    {
+//        public string Name { get; set; }
+//        public UnitType Type { get; set; }
+//        public int Health { get; set; }
+//        public int Attack { get; set; }
+//        public int Defense { get; set; }
+//        public int Range { get; set; }
+//        public int X { get; set; }
+//        public int Y { get; set; }
+//        public bool IsEnemy { get; set; }
+
+//        public GameUnit(string name, UnitType type, int x, int y, bool isEnemy = false)
+//        {
+//            Name = name;
+//            Type = type;
+//            X = x;
+//            Y = y;
+//            IsEnemy = isEnemy;
+
+//            switch (type)
+//            {
+//                case UnitType.Worker:
+//                    Health = 30;
+//                    Attack = 5;
+//                    Defense = 2;
+//                    Range = 1;
+//                    break;
+//                case UnitType.Soldier:
+//                    Health = 100;
+//                    Attack = 15;
+//                    Defense = 10;
+//                    Range = 1;
+//                    break;
+//                case UnitType.Archer:
+//                    Health = 60;
+//                    Attack = 12;
+//                    Defense = 5;
+//                    Range = 3;
+//                    break;
+//                case UnitType.Cavalry:
+//                    Health = 120;
+//                    Attack = 20;
+//                    Defense = 8;
+//                    Range = 1;
+//                    break;
+//                default:
+//                    Health = 200;
+//                    Attack = 0;
+//                    Defense = 20;
+//                    Range = 0;
+//                    break;
+//            }
+//        }
+
+//        public bool IsInRange(int targetX, int targetY)
+//        {
+//            int distance = Math.Abs(X - targetX) + Math.Abs(Y - targetY);
+//            return distance <= Range;
+//        }
+
+//        public override string ToString()
+//        {
+//            return $"{Name} ({Type}) [HP:{Health}] в ({X},{Y})";
+//        }
+//    }
+
+//    public class ResourceNode
+//    {
+//        public string Type { get; set; }
+//        public int Amount { get; set; }
+//        public int X { get; set; }
+//        public int Y { get; set; }
+
+//        public ResourceNode(string type, int x, int y, int amount = 100)
+//        {
+//            Type = type;
+//            X = x;
+//            Y = y;
+//            Amount = amount;
+//        }
+//    }
+
+//    public class GameAI
+//    {
+//        private List<GameUnit> playerUnits = new List<GameUnit>();
+//        private List<GameUnit> enemyUnits = new List<GameUnit>();
+//        private List<ResourceNode> resources = new List<ResourceNode>();
+//        private List<GameUnit> aiUnits = new List<GameUnit>();
+
+//        private AIStrategy currentStrategy = AIStrategy.Economy;
+//        private Random random = new Random();
+
+//        private int aiGold = 1000;
+//        private int aiWood = 500;
+//        private int aiFood = 300;
+//        private int baseX = 5;
+//        private int baseY = 5;
+//        private int turnCounter = 0;
+
+//        public GameAI()
+//        {
+//            InitializeGame();
+//        }
+
+//        private void InitializeGame()
+//        {
+//            aiUnits.Add(new GameUnit("База", UnitType.Building, baseX, baseY));
+//            aiUnits.Add(new GameUnit("Рабочий 1", UnitType.Worker, baseX + 1, baseY));
+//            aiUnits.Add(new GameUnit("Рабочий 2", UnitType.Worker, baseX - 1, baseY));
+//            aiUnits.Add(new GameUnit("Солдат 1", UnitType.Soldier, baseX, baseY + 1));
+
+//            enemyUnits.Add(new GameUnit("Враг База", UnitType.Building, 15, 15, true));
+//            enemyUnits.Add(new GameUnit("Враг Солдат", UnitType.Soldier, 14, 15, true));
+//            enemyUnits.Add(new GameUnit("Враг Лучник", UnitType.Archer, 16, 15, true));
+
+//            resources.Add(new ResourceNode("Золото", 2, 2, 200));
+//            resources.Add(new ResourceNode("Дерево", 8, 3, 150));
+//            resources.Add(new ResourceNode("Еда", 3, 8, 100));
+//            resources.Add(new ResourceNode("Золото", 12, 12, 200));
+
+//            Console.WriteLine("Игра инициализирована!");
+//            Console.WriteLine($"Ресурсы ИИ: Золото={aiGold}, Дерево={aiWood}, Еда={aiFood}");
+//        }
+
+//        public void UpdateGameState()
+//        {
+//            turnCounter++;
+
+//            aiGold += 50;
+//            aiWood += 20;
+//            aiFood += 30;
+
+//            if (turnCounter % 3 == 0)
+//            {
+//                int newX = random.Next(10, 20);
+//                int newY = random.Next(10, 20);
+//                enemyUnits.Add(new GameUnit($"Враг Солдат {turnCounter}", UnitType.Soldier, newX, newY, true));
+//            }
+//        }
+
+//        private void AnalyzeSituation()
+//        {
+//            int aiPower = CalculateArmyPower(aiUnits);
+//            int enemyPower = CalculateArmyPower(enemyUnits);
+
+//            Console.WriteLine($"Сила ИИ: {aiPower}, Сила врага: {enemyPower}");
+
+//            double ratio = (double)aiPower / Math.Max(1, enemyPower);
+
+//            if (ratio > 1.5)
+//            {
+//                currentStrategy = AIStrategy.Attack;
+//                Console.WriteLine("Стратегия: АТАКА (превосходство в силе)");
+//            }
+//            else if (ratio < 0.7)
+//            {
+//                currentStrategy = AIStrategy.Defense;
+//                Console.WriteLine("Стратегия: ОБОРОНА (противник сильнее)");
+//            }
+//            else
+//            {
+//                currentStrategy = AIStrategy.Economy;
+//                Console.WriteLine("Стратегия: РАЗВИТИЕ ЭКОНОМИКИ (паритет)");
+//            }
+//        }
+
+//        private int CalculateArmyPower(List<GameUnit> units)
+//        {
+//            int power = 0;
+//            foreach (var unit in units)
+//            {
+//                if (unit.Type != UnitType.Worker && unit.Type != UnitType.Building)
+//                {
+//                    power += unit.Health / 10 + unit.Attack + unit.Defense;
+//                }
+//            }
+//            return power;
+//        }
+
+//        private void ExecuteAttack()
+//        {
+//            Console.WriteLine("\n=== РЕЖИМ АТАКИ ===");
+
+//            var availableUnits = aiUnits
+//                .Where(u => u.Type != UnitType.Worker && u.Type != UnitType.Building)
+//                .ToList();
+
+//            if (availableUnits.Count == 0)
+//            {
+//                Console.WriteLine("Нет боевых юнитов для атаки!");
+//                return;
+//            }
+
+//            var target = FindBestTarget(availableUnits);
+
+//            if (target == null)
+//            {
+//                Console.WriteLine("Нет доступных целей для атаки!");
+//                return;
+//            }
+
+//            Console.WriteLine($"Цель атаки: {target}");
+
+//            var attackers = new List<GameUnit>();
+//            foreach (var unit in availableUnits)
+//            {
+//                if (unit.IsInRange(target.X, target.Y) && attackers.Count < 3)
+//                {
+//                    attackers.Add(unit);
+//                }
+//            }
+
+//            if (attackers.Count == 0)
+//            {
+//                Console.WriteLine("Нет юнитов в радиусе атаки!");
+
+//                foreach (var unit in availableUnits)
+//                {
+//                    Console.WriteLine($"{unit.Name} двигается к цели");
+//                    MoveToward(unit, target.X, target.Y);
+//                }
+//                return;
+//            }
+
+//            Console.WriteLine($"Ударная группа ({attackers.Count} юнитов):");
+//            foreach (var attacker in attackers)
+//            {
+//                Console.WriteLine($"  {attacker.Name} атакует!");
+//                int damage = attacker.Attack - target.Defense / 2;
+//                damage = Math.Max(5, damage);
+//                target.Health -= damage;
+//                Console.WriteLine($"    Нанесено урона: {damage}, Здоровье цели: {target.Health}");
+
+//                if (target.Health <= 0)
+//                {
+//                    Console.WriteLine($"    Цель уничтожена!");
+//                    enemyUnits.Remove(target);
+//                    break;
+//                }
+//            }
+
+//            if (enemyUnits.Any(u => u.IsInRange(baseX, baseY)))
+//            {
+//                Console.WriteLine("Враг рядом с базой! Возвращаем юнитов для защиты!");
+//                foreach (var unit in availableUnits)
+//                {
+//                    MoveToward(unit, baseX, baseY);
+//                }
+//            }
+//        }
+
+//        private GameUnit FindBestTarget(List<GameUnit> attackers)
+//        {
+//            GameUnit bestTarget = null;
+//            int bestScore = -1;
+
+//            foreach (var enemy in enemyUnits)
+//            {
+//                if (enemy.Type == UnitType.Building) continue;
+
+//                int score = 1000 - enemy.Health;
+//                score += enemy.Attack * 10;
+
+//                int minDistance = int.MaxValue;
+//                foreach (var attacker in attackers)
+//                {
+//                    int dist = Math.Abs(attacker.X - enemy.X) + Math.Abs(attacker.Y - enemy.Y);
+//                    minDistance = Math.Min(minDistance, dist);
+//                }
+
+//                score -= minDistance * 5;
+
+//                if (score > bestScore)
+//                {
+//                    bestScore = score;
+//                    bestTarget = enemy;
+//                }
+//            }
+
+//            return bestTarget;
+//        }
+
+//        private void ExecuteDefense()
+//        {
+//            Console.WriteLine("\n=== РЕЖИМ ОБОРОНЫ ===");
+
+//            var defenders = aiUnits
+//                .Where(u => u.Type != UnitType.Worker)
+//                .ToList();
+
+//            Console.WriteLine($"Гарнизон обороны: {defenders.Count} юнитов");
+
+//            foreach (var defender in defenders)
+//            {
+//                int closestEnemyDistance = int.MaxValue;
+//                GameUnit closestEnemy = null;
+
+//                foreach (var enemy in enemyUnits)
+//                {
+//                    int dist = Math.Abs(defender.X - enemy.X) + Math.Abs(defender.Y - enemy.Y);
+//                    if (dist < closestEnemyDistance)
+//                    {
+//                        closestEnemyDistance = dist;
+//                        closestEnemy = enemy;
+//                    }
+//                }
+
+//                if (closestEnemy != null && closestEnemyDistance <= defender.Range)
+//                {
+//                    Console.WriteLine($"{defender.Name} атакует врага на расстоянии {closestEnemyDistance}");
+//                    int damage = defender.Attack - closestEnemy.Defense / 2;
+//                    damage = Math.Max(5, damage);
+//                    closestEnemy.Health -= damage;
+//                    Console.WriteLine($"  Нанесено урона: {damage}");
+//                }
+//                else if (closestEnemy != null && closestEnemyDistance < 10)
+//                {
+//                    Console.WriteLine($"{defender.Name} двигается к врагу");
+//                    MoveToward(defender, closestEnemy.X, closestEnemy.Y);
+//                }
+//                else
+//                {
+//                    Console.WriteLine($"{defender.Name} защищает базу");
+//                    MoveToward(defender, baseX, baseY);
+//                }
+//            }
+
+//            BuildDefensiveStructures();
+//        }
+
+//        private void ExecuteEconomy()
+//        {
+//            Console.WriteLine("\n=== РЕЖИМ РАЗВИТИЯ ===");
+
+//            var workers = aiUnits.Where(u => u.Type == UnitType.Worker).ToList();
+
+//            Console.WriteLine($"Рабочие: {workers.Count}");
+
+//            for (int i = 0; i < workers.Count; i++)
+//            {
+//                var worker = workers[i];
+//                var closestResource = FindClosestResource(worker);
+
+//                if (closestResource != null)
+//                {
+//                    Console.WriteLine($"{worker.Name} добывает {closestResource.Type}");
+
+//                    int gatherAmount = 10;
+//                    closestResource.Amount -= gatherAmount;
+
+//                    switch (closestResource.Type)
+//                    {
+//                        case "Золото": aiGold += gatherAmount; break;
+//                        case "Дерево": aiWood += gatherAmount; break;
+//                        case "Еда": aiFood += gatherAmount; break;
+//                    }
+
+//                    if (closestResource.Amount <= 0)
+//                    {
+//                        Console.WriteLine($"Ресурс {closestResource.Type} исчерпан!");
+//                        resources.Remove(closestResource);
+//                    }
+//                }
+//                else
+//                {
+//                    Console.WriteLine($"{worker.Name} ищет ресурсы");
+//                    worker.X += random.Next(-1, 2);
+//                    worker.Y += random.Next(-1, 2);
+//                }
+//            }
+
+//            BuildUnitsAndStructures();
+//        }
+
+//        private ResourceNode FindClosestResource(GameUnit worker)
+//        {
+//            ResourceNode closest = null;
+//            int minDistance = int.MaxValue;
+
+//            foreach (var resource in resources)
+//            {
+//                int dist = Math.Abs(worker.X - resource.X) + Math.Abs(worker.Y - resource.Y);
+//                if (dist < minDistance)
+//                {
+//                    minDistance = dist;
+//                    closest = resource;
+//                }
+//            }
+
+//            return closest;
+//        }
+
+//        private void BuildDefensiveStructures()
+//        {
+//            if (aiWood >= 100 && aiUnits.Count(u => u.Type == UnitType.Building && u.Name.Contains("Башня")) < 2)
+//            {
+//                Console.WriteLine("Строим оборонительную башню!");
+//                aiWood -= 100;
+//                aiUnits.Add(new GameUnit("Башня", UnitType.Building, baseX + 2, baseY));
+//                aiUnits.Last().Defense = 30;
+//            }
+//        }
+
+//        private void BuildUnitsAndStructures()
+//        {
+//            if (aiFood >= 50 && aiGold >= 100)
+//            {
+//                Console.WriteLine("Нанят новый солдат!");
+//                aiFood -= 50;
+//                aiGold -= 100;
+//                aiUnits.Add(new GameUnit($"Солдат {aiUnits.Count}", UnitType.Soldier, baseX, baseY));
+//            }
+
+//            if (aiWood >= 150 && aiGold >= 200 && aiUnits.Count(u => u.Type == UnitType.Archer) < 3)
+//            {
+//                Console.WriteLine("Нанят лучник!");
+//                aiWood -= 150;
+//                aiGold -= 200;
+//                aiUnits.Add(new GameUnit($"Лучник {aiUnits.Count}", UnitType.Archer, baseX, baseY));
+//            }
+
+//            if (aiUnits.Count(u => u.Type == UnitType.Worker) < 5 && aiFood >= 30 && aiGold >= 80)
+//            {
+//                Console.WriteLine("Нанят новый рабочий!");
+//                aiFood -= 30;
+//                aiGold -= 80;
+//                aiUnits.Add(new GameUnit($"Рабочий {aiUnits.Count}", UnitType.Worker, baseX, baseY));
+//            }
+//        }
+
+//        private void MoveToward(GameUnit unit, int targetX, int targetY)
+//        {
+//            if (unit.X < targetX) unit.X++;
+//            else if (unit.X > targetX) unit.X--;
+
+//            if (unit.Y < targetY) unit.Y++;
+//            else if (unit.Y > targetY) unit.Y--;
+//        }
+
+//        public void ExecuteTurn()
+//        {
+//            Console.WriteLine($"\n[Ход {turnCounter}] Ресурсы: Золото={aiGold}, Дерево={aiWood}, Еда={aiFood}");
+//            Console.WriteLine($"Юнитов ИИ: {aiUnits.Count}, Юнитов врага: {enemyUnits.Count}");
+
+//            AnalyzeSituation();
+
+//            switch (currentStrategy)
+//            {
+//                case AIStrategy.Attack:
+//                    ExecuteAttack();
+//                    break;
+//                case AIStrategy.Defense:
+//                    ExecuteDefense();
+//                    break;
+//                case AIStrategy.Economy:
+//                    ExecuteEconomy();
+//                    break;
+//            }
+
+//            Console.WriteLine($"\nСостояние армии ИИ:");
+//            foreach (var unit in aiUnits)
+//            {
+//                Console.WriteLine($"  {unit}");
+//            }
+//        }
+
+//        public void PrintStats()
+//        {
+//            Console.WriteLine($"Итоговые ресурсы: Золото={aiGold}, Дерево={aiWood}, Еда={aiFood}");
+//            Console.WriteLine($"Армия ИИ: {aiUnits.Count} юнитов");
+//            Console.WriteLine($"Армия врага: {enemyUnits.Count} юнитов");
+
+//            int aiSurvivors = aiUnits.Count(u => u.Health > 0);
+//            int enemySurvivors = enemyUnits.Count(u => u.Health > 0);
+
+//            Console.WriteLine($"Выжило: ИИ - {aiSurvivors}, Враг - {enemySurvivors}");
+
+//            if (aiSurvivors > enemySurvivors * 2)
+//            {
+//                Console.WriteLine("РЕЗУЛЬТАТ: ПОБЕДА ИИ!");
+//            }
+//            else if (enemySurvivors > aiSurvivors * 2)
+//            {
+//                Console.WriteLine("РЕЗУЛЬТАТ: ПОРАЖЕНИЕ ИИ!");
+//            }
+//            else
+//            {
+//                Console.WriteLine("РЕЗУЛЬТАТ: НИЧЬЯ!");
+//            }
+//        }
+//    }
+//}
+//```
